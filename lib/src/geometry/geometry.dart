@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gpu/gpu.dart' as gpu;
@@ -316,5 +317,62 @@ class CuboidGeometry extends UnskinnedGeometry {
     uploadVertexData(
         ByteData.sublistView(vertices), 8, ByteData.sublistView(indices),
         indexType: gpu.IndexType.int16);
+  }
+}
+
+class SphereGeometry extends UnskinnedGeometry {
+  SphereGeometry(double radius, int widthSegments, int heightSegments) {
+    final List<double> vertices = [];
+    final List<int> indices = [];
+
+    // Generate vertices
+    for (int y = 0; y <= heightSegments; y++) {
+      for (int x = 0; x <= widthSegments; x++) {
+        double u = x / widthSegments; // Horizontal coordinate (0 to 1)
+        double v = y / heightSegments; // Vertical coordinate (0 to 1)
+        double theta = u * 2.0 * pi; // Longitude
+        double phi = v * pi; // Latitude
+
+        // Calculate vertex position
+        double px = radius * sin(phi) * cos(theta);
+        double py = radius * cos(phi);
+        double pz = radius * sin(phi) * sin(theta);
+
+        // Calculate normal (normalized position for a sphere)
+        double nx = px / radius;
+        double ny = py / radius;
+        double nz = pz / radius;
+
+        // Texture coordinates
+        double uCoord = u;
+        double vCoord = 1.0 - v; // Flip V for proper texture orientation
+
+        // Color (example: white)
+        double r = 1.0, g = 1.0, b = 1.0, a = 1.0;
+
+        // Append vertex data
+        vertices.addAll([px, py, pz, nx, ny, nz, uCoord, vCoord, r, g, b, a]);
+      }
+    }
+
+    // Generate indices
+    for (int y = 0; y < heightSegments; y++) {
+      for (int x = 0; x < widthSegments; x++) {
+        int a = y * (widthSegments + 1) + x;
+        int b = a + widthSegments + 1;
+
+        // Two triangles per quad
+        indices.addAll([a, b, a + 1]); // Triangle 1
+        indices.addAll([b, b + 1, a + 1]); // Triangle 2
+      }
+    }
+
+    // Upload vertex and index data to the GPU
+    uploadVertexData(
+      ByteData.sublistView(Float32List.fromList(vertices)),
+      vertices.length ~/ 12, // Number of vertices (12 values per vertex)
+      ByteData.sublistView(Uint16List.fromList(indices)),
+      indexType: gpu.IndexType.int16,
+    );
   }
 }
